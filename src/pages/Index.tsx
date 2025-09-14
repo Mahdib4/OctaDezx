@@ -10,34 +10,34 @@ const Index = () => {
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <Bot className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-bold">OctaDezx AI</span>
+            <span className="text-xl sm:text-2xl font-bold">OctaDezx AI</span>
           </div>
           <Link to="/auth">
-            <Button>Get Started</Button>
+            <Button size="sm" className="sm:size-auto">Get Started</Button>
           </Link>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-16">
-        <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold mb-6">
+      <main className="container mx-auto px-4 py-12 sm:py-16">
+        <div className="text-center mb-12 sm:mb-16">
+          <h1 className="text-4xl sm:text-5xl font-bold mb-4 sm:mb-6">
             Smart AI Customer Service for Your Business
           </h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+          <p className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
             Train an AI assistant to handle customer inquiries, show product images, 
             and escalate complex issues to your team automatically.
           </p>
           <Link to="/auth">
-            <Button size="lg" className="text-lg px-8 py-6">
+            <Button size="lg" className="text-base sm:text-lg px-6 py-4 sm:px-8 sm:py-6">
               Start Your Free Trial
             </Button>
           </Link>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 mb-16">
+        <div className="grid md:grid-cols-3 gap-8 mb-12 sm:mb-16">
           <Card>
             <CardHeader>
-              <Zap className="h-12 w-12 text-primary mb-4" />
+              <Zap className="h-10 w-10 sm:h-12 sm:w-12 text-primary mb-4" />
               <CardTitle>Quick Setup</CardTitle>
               <CardDescription>
                 Train your AI in minutes with your business policies and product catalog
@@ -47,7 +47,7 @@ const Index = () => {
 
           <Card>
             <CardHeader>
-              <MessageSquare className="h-12 w-12 text-primary mb-4" />
+              <MessageSquare className="h-10 w-10 sm:h-12 sm:w-12 text-primary mb-4" />
               <CardTitle>Smart Responses</CardTitle>
               <CardDescription>
                 AI handles customer questions and shows relevant product images automatically
@@ -57,7 +57,7 @@ const Index = () => {
 
           <Card>
             <CardHeader>
-              <Users className="h-12 w-12 text-primary mb-4" />
+              <Users className="h-10 w-10 sm:h-12 sm:w-12 text-primary mb-4" />
               <CardTitle>Human Handoff</CardTitle>
               <CardDescription>
                 Complex issues are escalated to your team with full conversation context
@@ -114,7 +114,7 @@ const Index = () => {
         </div>
       </main>
 
-      <footer className="border-t bg-card mt-16">
+      <footer className="border-t bg-card mt-12 sm:mt-16">
         <div className="container mx-auto px-4 py-8 text-center">
           <p className="text-muted-foreground">
             © 2024 OctaDezx AI. Transforming customer service with intelligent automation.

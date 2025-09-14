@@ -18,11 +18,7 @@ const AuthCallback = () => {
           const { error } = await supabase.auth.exchangeCodeForSession(code)
           if (error) throw error
           
-          toast({
-            title: "Success!",
-            description: "Your account has been verified.",
-          })
-          navigate('/dashboard')
+          navigate('/verification-completed')
         } catch (error: any) {
           toast({
             title: "Error",

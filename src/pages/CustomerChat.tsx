@@ -116,8 +116,8 @@ const CustomerChat = () => {
     }
   };
 
-  const startChat = async () => {
-    if (!customerInfo.name || !customerInfo.email) {
+  const startChat = async (skip = false) => {
+    if (!skip && (!customerInfo.name || !customerInfo.email)) {
       toast({
         title: "Error",
         description: "Please provide your name and email",
@@ -128,17 +128,21 @@ const CustomerChat = () => {
 
     try {
       const newSessionId = generateUUID();
+      const name = skip ? 'Anonymous' : customerInfo.name;
+      const email = skip ? `${generateUUID()}@anonymous.com` : customerInfo.email;
+
       const { error } = await supabase
         .from("chat_sessions")
         .insert({
             id: newSessionId,
             business_id: businessId,
-            customer_name: customerInfo.name,
-            customer_email: customerInfo.email,
+            customer_name: name,
+            customer_email: email,
         });
 
       if (error) throw error;
 
+      setCustomerInfo({ name, email });
       setSessionId(newSessionId);
       setIsSetup(true);
       
@@ -302,9 +306,14 @@ const CustomerChat = () => {
                 placeholder="Enter your email"
               />
             </div>
-            <Button onClick={startChat} className="w-full">
-              Start Chat
-            </Button>
+            <div className="flex flex-col sm:flex-row-reverse gap-2">
+                <Button onClick={() => startChat(false)} className="w-full">
+                    Start Chat
+                </Button>
+                <Button onClick={() => startChat(true)} className="w-full" variant="outline">
+                    Chat Anonymously
+                </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -337,7 +346,7 @@ const CustomerChat = () => {
               <div
                 className={`max-w-[70%] rounded-lg p-3 ${
                   message.sender_type === 'customer'
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-primary text-primary-foreground'
                     : 'bg-muted'
                 }`}
               >
