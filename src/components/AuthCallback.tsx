@@ -1,50 +1,36 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { supabase } from '@/integrations/supabase/client'
-import { useToast } from '@/components/ui/use-toast'
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 const AuthCallback = () => {
-  const [searchParams] = useSearchParams()
-  const navigate = useNavigate()
-  const { toast } = useToast()
-  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleAuthCallback = async () => {
-      const code = searchParams.get('code')
+      // Get the session from URL hash
+      const { data: { session }, error } = await supabase.auth.getSession();
       
-      if (code) {
-        try {
-          const { error } = await supabase.auth.exchangeCodeForSession(code)
-          if (error) throw error
-          
-          navigate('/verification-completed')
-        } catch (error: any) {
-          toast({
-            title: "Error",
-            description: error.message,
-            variant: "destructive",
-          })
-          navigate('/auth')  // Redirect back to auth page on error
-        }
-      } else {
-        navigate('/')
+      if (error) {
+        console.error('Error handling callback:', error);
+        navigate('/auth');
+        return;
       }
-      setLoading(false)
-    }
 
-    handleAuthCallback()
-  }, [searchParams, navigate, toast])
+      if (session) {
+        navigate('/dashboard');
+      } else {
+        navigate('/auth');
+      }
+    };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Verifying your account...</div>
-      </div>
-    )
-  }
+    handleAuthCallback();
+  }, [navigate]);
 
-  return null
-}
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-lg">Completing authentication...</div>
+    </div>
+  );
+};
 
-export default AuthCallback
+export default AuthCallback;

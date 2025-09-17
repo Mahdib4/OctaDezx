@@ -92,21 +92,28 @@ Rules:
       { role: 'user', content: message }
     ];
 
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      console.error('OpenAI API key not found');
+    const groqApiKey = Deno.env.get('GROQ_API_KEY');
+    if (!groqApiKey) {
+      console.error('Groq API key not found');
       const fallback = localSmartReply(message, products, business);
       return new Response(JSON.stringify({ response: fallback }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    async function callOpenAI(model: string): Promise<string | null> {
-      const body: Record<string, any> = { model, messages, max_tokens: 450, temperature: 0.3 };
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    // GROQ IMPLEMENTATION
+    async function callGroq(model: string): Promise<string | null> {
+      const body = { 
+        model, 
+        messages, 
+        max_tokens: 450, 
+        temperature: 0.3 
+      };
+      
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
+          'Authorization': `Bearer ${groqApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
@@ -114,18 +121,19 @@ Rules:
 
       if (!res.ok) {
         const errText = await res.text().catch(() => '');
-        console.error('OpenAI API error:', res.status, res.statusText, errText);
+        console.error('Groq API error:', res.status, res.statusText, errText);
         return null;
       }
+      
       const json = await res.json().catch(() => null);
       return json?.choices?.[0]?.message?.content?.trim() || null;
     }
 
     async function withRetry(): Promise<string | null> {
-      const models = ['gpt-4o-mini', 'gpt-4-turbo'];
+      const models = ['llama-3.1-8b-instant', 'mixtral-8x7b-32768'];
       for (let i = 0; i < models.length; i++) {
         console.log(`AI attempt ${i + 1} using ${models[i]}`);
-        const result = await callOpenAI(models[i]);
+        const result = await callGroq(models[i]);
         if (result) return result;
         if (i < models.length - 1) {
           const delay = 300 * Math.pow(2, i);
