@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,10 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { Plus, Upload, X, Edit } from "lucide-react";
-<<<<<<< HEAD
 import { ScrollArea } from "@/components/ui/scroll-area";
-=======
->>>>>>> a24d1adae24e75e0ee1ec85fcdfb52f0a1d412f9
 
 interface Product {
   id: string;
@@ -56,23 +52,6 @@ const ProductCatalog = ({ businessId }: ProductCatalogProps) => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-<<<<<<< HEAD
-=======
-
-      setProducts(data?.map(product => ({
-        ...product,
-        description: product.description || "",
-        category: product.category || "",
-        price: product.price || 0,
-        images: (product.product_images || []).map((img: any) => ({ ...img, alt_text: img.alt_text || "" }))
-      })) || []);
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to load products", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
->>>>>>> a24d1adae24e75e0ee1ec85fcdfb52f0a1d412f9
 
       setProducts(data?.map(product => ({
         ...product,
@@ -136,21 +115,14 @@ const ProductCatalog = ({ businessId }: ProductCatalogProps) => {
 
   const uploadImages = async (productId: string) => {
     const imageUrls = [];
-<<<<<<< HEAD
     const hasPrimaryImage = editingProduct ? editingProduct.images.some(img => img.is_primary) : false;
-=======
->>>>>>> a24d1adae24e75e0ee1ec85fcdfb52f0a1d412f9
     for (let i = 0; i < uploadedImages.length; i++) {
       const file = uploadedImages[i];
       const fileName = `${productId}-${Date.now()}-${i}.${file.name.split('.').pop()}`;
       const { data, error } = await supabase.storage.from('product-images').upload(fileName, file);
       if (error) throw new Error(`Failed to upload ${file.name}: ${error.message}`);
       const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName);
-<<<<<<< HEAD
       imageUrls.push({ product_id: productId, image_url: publicUrl, alt_text: file.name, is_primary: i === 0 && !hasPrimaryImage });
-=======
-      imageUrls.push({ product_id: productId, image_url: publicUrl, alt_text: file.name, is_primary: i === 0 && !products.find(p=>p.id === productId)?.images.some(img=>img.is_primary) });
->>>>>>> a24d1adae24e75e0ee1ec85fcdfb52f0a1d412f9
     }
     if (imageUrls.length > 0) {
       const { error } = await supabase.from('product_images').insert(imageUrls);
@@ -208,7 +180,6 @@ const ProductCatalog = ({ businessId }: ProductCatalogProps) => {
         </div>
         <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Product</Button></DialogTrigger>
-<<<<<<< HEAD
           <DialogContent>
             <DialogHeader><DialogTitle>Add New Product</DialogTitle><DialogDescription>Add details and images for your AI.</DialogDescription></DialogHeader>
             <ScrollArea className="max-h-[70vh] -mx-6 pr-6">
@@ -252,14 +223,6 @@ const ProductCatalog = ({ businessId }: ProductCatalogProps) => {
                 <Button type="submit" className="w-full">Add Product</Button>
               </form>
             </ScrollArea>
-=======
-          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Add New Product</DialogTitle><DialogDescription>Add details and images for your AI.</DialogDescription></DialogHeader>
-            <form ref={addFormRef} onSubmit={handleAddSubmit} className="space-y-4 pb-2">
-              {/* Add form fields */}
-              <Button type="submit" className="w-full">Add Product</Button>
-            </form>
->>>>>>> a24d1adae24e75e0ee1ec85fcdfb52f0a1d412f9
           </DialogContent>
         </Dialog>
       </div>
@@ -287,7 +250,6 @@ const ProductCatalog = ({ businessId }: ProductCatalogProps) => {
         </div>
       )}
 
-<<<<<<< HEAD
       <Dialog open={editingProduct !== null} onOpenChange={(isOpen) => !isOpen && setEditingProduct(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Edit Product</DialogTitle><DialogDescription>Update product details and images.</DialogDescription></DialogHeader>
@@ -340,32 +302,6 @@ const ProductCatalog = ({ businessId }: ProductCatalogProps) => {
               <Button type="submit" className="w-full">Update Product</Button>
             </form>
           </ScrollArea>
-=======
-      {/* Edit Product Dialog */}
-      <Dialog open={editingProduct !== null} onOpenChange={(isOpen) => !isOpen && setEditingProduct(null)}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Edit Product</DialogTitle><DialogDescription>Update product details and images.</DialogDescription></DialogHeader>
-          <form ref={editFormRef} onSubmit={handleUpdateSubmit} className="space-y-4 pb-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Product Name</Label>
-              <Input id="name" name="name" required defaultValue={editingProduct?.name} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Input id="category" name="category" placeholder="e.g., Electronics" defaultValue={editingProduct?.category} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="price">Price</Label>
-              <Input id="price" name="price" type="number" step="0.01" placeholder="0.00" defaultValue={editingProduct?.price} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea id="description" name="description" placeholder="Detailed product description..." rows={3} defaultValue={editingProduct?.description} />
-            </div>
-            {/* Image upload section for editing */}
-            <Button type="submit" className="w-full">Update Product</Button>
-          </form>
->>>>>>> a24d1adae24e75e0ee1ec85fcdfb52f0a1d412f9
         </DialogContent>
       </Dialog>
     </div>
