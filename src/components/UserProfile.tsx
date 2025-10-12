@@ -60,19 +60,20 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBusinessNameUpdated }) => {
 
     setIsSubmitting(true);
     try {
-      // Update user profile
-      const profileUpdates = {
-        user_id: user.id,
+      const updates = {
         business_name: businessName,
         business_type: businessType,
         contact_email: contactEmail,
         updated_at: new Date().toISOString(),
       };
 
-      const { error: profileError } = await supabase.from('profiles').upsert(profileUpdates);
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('user_id', user.id);
 
-      if (profileError) {
-        throw profileError;
+      if (error) {
+        throw error;
       }
 
       toast({
@@ -80,7 +81,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBusinessNameUpdated }) => {
         description: 'Your business information has been saved.',
       });
 
-      // Call the callback to update the business name in the parent component
       if (onBusinessNameUpdated) {
         onBusinessNameUpdated(businessName);
       }

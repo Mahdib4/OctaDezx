@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { Bot, Send, Image as ImageIcon, Loader2, X } from "lucide-react";
+import { Bot, Send, Image as ImageIcon, Loader2, X, User, Shield, Building } from "lucide-react";
 
 interface Business {
   id: string;
@@ -37,6 +37,7 @@ const CustomerChat = () => {
   const [typing, setTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const generateUUID = () => {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -48,10 +49,13 @@ const CustomerChat = () => {
 
   if (!maybeBusinessId) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
         <div className="text-center">
+          <div className="w-16 h-16 bg-red-900 rounded-full flex items-center justify-center mx-auto mb-4">
+            <X className="h-8 w-8 text-red-400" />
+          </div>
           <h1 className="text-2xl font-bold mb-4">Invalid Link</h1>
-          <p className="text-muted-foreground">
+          <p className="text-gray-400">
             The chat link is missing business information.
           </p>
         </div>
@@ -72,11 +76,11 @@ const CustomerChat = () => {
   useEffect(() => {
     if (!sessionId) return;
 
-    loadMessages(); // Initial load
+    loadMessages(); 
 
     const interval = setInterval(() => {
       loadMessages();
-    }, 5000); // Poll every 5 seconds
+    }, 5000); 
 
     return () => clearInterval(interval);
   }, [sessionId]);
@@ -146,7 +150,7 @@ const CustomerChat = () => {
       setSessionId(newSessionId);
       setIsSetup(true);
       
-      const welcomeMessage = "Hello! I'm your Customer Support assistant. How can I help you today?";
+      const welcomeMessage = "Hello! I'm here to help you today. How can I assist you?";
       const { data: msgData, error: messageError } = await supabase
         .from("chat_messages")
         .insert({
@@ -268,10 +272,13 @@ const CustomerChat = () => {
 
   if (!business) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
         <div className="text-center">
+          <div className="w-16 h-16 bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Loader2 className="h-8 w-8 text-blue-400 animate-spin" />
+          </div>
           <h1 className="text-2xl font-bold mb-4">Business Not Found</h1>
-          <p className="text-muted-foreground">
+          <p className="text-gray-400">
             The chat service you're looking for is not available.
           </p>
         </div>
@@ -281,39 +288,63 @@ const CustomerChat = () => {
 
   if (!isSetup) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <Bot className="h-16 w-16 mx-auto mb-4 text-primary" />
-            <CardTitle>Chat with {business.name}</CardTitle>
-            <CardDescription>{business.description}</CardDescription>
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
+        <Card className="w-full max-w-md bg-gray-800 text-white border-gray-700">
+          <CardHeader className="text-center space-y-4">
+            <div className="relative">
+              <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                <Building className="h-10 w-10 text-white" />
+              </div>
+            </div>
+            <CardTitle className="text-2xl">Chat with {business.name}</CardTitle>
+            <CardDescription className="text-gray-300 text-base">{business.description}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Your Name</label>
-              <Input
-                value={customerInfo.name}
-                onChange={(e) => setCustomerInfo(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter your name"
-              />
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Your Name
+                </label>
+                <Input
+                  value={customerInfo.name}
+                  onChange={(e) => setCustomerInfo(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter your name"
+                  className="bg-gray-700 text-white border-gray-600 focus:border-blue-500 transition-colors"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Your Email
+                </label>
+                <Input
+                  type="email"
+                  value={customerInfo.email}
+                  onChange={(e) => setCustomerInfo(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="Enter your email"
+                  className="bg-gray-700 text-white border-gray-600 focus:border-blue-500 transition-colors"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Your Email</label>
-              <Input
-                type="email"
-                value={customerInfo.email}
-                onChange={(e) => setCustomerInfo(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="Enter your email"
-              />
+            <div className="flex flex-col gap-3">
+              <Button 
+                onClick={() => startChat(false)} 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg transition-colors duration-200"
+              >
+                Start Chat
+              </Button>
+              <Button 
+                onClick={() => startChat(true)} 
+                variant="outline"
+                className="w-full border-gray-600 hover:bg-gray-700 text-gray-300 py-3 rounded-lg transition-colors duration-200"
+              >
+                Continue Anonymously
+              </Button>
             </div>
-            <div className="flex flex-col sm:flex-row-reverse gap-2">
-                <Button onClick={() => startChat(false)} className="w-full">
-                    Start Chat
-                </Button>
-                <Button onClick={() => startChat(true)} className="w-full" variant="outline">
-                    Chat Anonymously
-                </Button>
-            </div>
+            <p className="text-xs text-gray-400 text-center">
+              Your conversation is secure and private
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -321,21 +352,38 @@ const CustomerChat = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      <header className="border-b bg-card p-4">
-        <div className="flex items-center space-x-3">
-          <Bot className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="font-semibold">{business.name} - Customer Care</h1>
-            <p className="text-sm text-muted-foreground">
-              Customer: {customerInfo.name}
-            </p>
+    <div className="h-screen flex flex-col bg-gray-900 text-white">
+      {/* Header */}
+      <header className="border-b border-gray-700 bg-gray-800 p-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                <Building className="h-6 w-6 text-white" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-800"></div>
+            </div>
+            <div>
+              <h1 className="font-semibold text-lg">{business.name}</h1>
+              <p className="text-sm text-gray-300 flex items-center gap-1">
+                <User className="h-3 w-3" />
+                {customerInfo.name}
+                <span className="text-green-400 ml-2 flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  Online
+                </span>
+              </p>
+            </div>
           </div>
+          <Badge variant="secondary" className="bg-green-900/30 text-green-400 border-green-800">
+            Live Chat
+          </Badge>
         </div>
       </header>
 
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4 max-w-3xl mx-auto">
+      {/* Chat Messages */}
+      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+        <div className="max-w-4xl mx-auto space-y-4 pb-4">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -344,24 +392,46 @@ const CustomerChat = () => {
               }`}
             >
               <div
-                className={`max-w-[70%] rounded-lg p-3 ${
+                className={`max-w-[80%] rounded-lg p-4 transition-all duration-200 ${
                   message.sender_type === 'customer'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-800 border border-gray-700'
                 }`}
               >
-                <div className="flex items-center space-x-2 mb-1">
-                  <Badge variant="outline" className="text-xs">
-                    {message.sender_type === 'customer' ? customerInfo.name : 'Customer Support'}
-                  </Badge>
+                <div className="flex items-center space-x-2 mb-2">
+                  <div className={`p-1 rounded-full ${
+                    message.sender_type === 'customer' ? 'bg-white/20' : 'bg-blue-500/20'
+                  }`}>
+                    {message.sender_type === 'customer' ? (
+                      <User className="h-3 w-3" />
+                    ) : (
+                      <Bot className="h-3 w-3 text-blue-400" />
+                    )}
+                  </div>
+                  <span className={`text-xs font-medium ${
+                    message.sender_type === 'customer' ? 'text-white/90' : 'text-gray-300'
+                  }`}>
+                    {message.sender_type === 'customer' ? customerInfo.name : 'Support'}
+                  </span>
+                  <span className={`text-xs ${
+                    message.sender_type === 'customer' ? 'text-white/70' : 'text-gray-400'
+                  }`}>
+                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
-                <div className="text-sm">{message.content}</div>
+                <div className={`text-sm leading-relaxed ${
+                  message.sender_type === 'customer' ? 'text-white' : 'text-gray-200'
+                }`}>
+                  {message.content}
+                </div>
                 {message.image_url && (
-                  <img
-                    src={message.image_url}
-                    alt="Uploaded content"
-                    className="mt-2 max-w-full rounded border"
-                  />
+                  <div className="mt-3">
+                    <img
+                      src={message.image_url}
+                      alt="Uploaded content"
+                      className="max-w-full rounded-lg border border-gray-600"
+                    />
+                  </div>
                 )}
               </div>
             </div>
@@ -369,13 +439,20 @@ const CustomerChat = () => {
           
           {typing && (
             <div className="flex justify-start">
-              <div className="bg-muted rounded-lg p-3">
-                <div className="flex items-center space-x-2">
-                  <Badge variant="outline" className="text-xs">Customer Support</Badge>
+              <div className="max-w-[80%] bg-gray-800 border border-gray-700 rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <div className="p-1 rounded-full bg-blue-500/20">
+                    <Bot className="h-3 w-3 text-blue-400" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-300">Support</span>
                 </div>
-                <div className="flex items-center space-x-1 mt-1">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm text-muted-foreground">Typing...</span>
+                <div className="flex items-center space-x-2">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                  <span className="text-sm text-gray-400">Typing...</span>
                 </div>
               </div>
             </div>
@@ -385,36 +462,65 @@ const CustomerChat = () => {
         </div>
       </ScrollArea>
 
-      <div className="border-t bg-card p-4">
-        <div className="max-w-3xl mx-auto">
+      {/* Input Area */}
+      <div className="border-t border-gray-700 bg-gray-800 p-4">
+        <div className="max-w-4xl mx-auto space-y-3">
           {stagedImage && (
-            <div className="relative bg-muted p-2 rounded-lg mb-2">
-              <div className="flex items-center space-x-2">
-                <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground truncate">{stagedImage.name}</span>
-                <Button variant="ghost" size="sm" onClick={() => setStagedImage(null)} className="absolute top-1 right-1 h-6 w-6">
-                  <X className="h-4 w-4" />
-                </Button>
+            <div className="flex items-center justify-between bg-gray-700 border border-gray-600 rounded-lg p-3">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                  <ImageIcon className="h-5 w-5 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white">{stagedImage.name}</p>
+                  <p className="text-xs text-gray-400">Ready to send</p>
+                </div>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setStagedImage(null)}
+                className="h-8 w-8 hover:bg-red-900/30 hover:text-red-400"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           )}
-          <div className="flex items-center space-x-2">
+          
+          <div className="flex items-center space-x-3">
             <Button
-              variant="outline"
               size="sm"
               onClick={() => fileInputRef.current?.click()}
+              variant="outline"
+              className="h-12 w-12 bg-gray-700 border-gray-600 hover:bg-gray-600 rounded-lg transition-colors duration-200"
             >
-              <ImageIcon className="h-4 w-4" />
+              <ImageIcon className="h-5 w-5 text-gray-300" />
             </Button>
-            <Input
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type your message..."
-              onKeyPress={(e) => e.key === 'Enter' && !loading && sendMessage()}
-            />
-            <Button onClick={sendMessage} disabled={loading || (!newMessage.trim() && !stagedImage)}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
+            <div className="flex-1 relative">
+              <Input
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type your message..."
+                onKeyPress={(e) => e.key === 'Enter' && !loading && sendMessage()}
+                className="h-12 bg-gray-700 border-gray-600 text-white rounded-lg pl-4 pr-20 focus:border-blue-500 transition-colors"
+                disabled={loading}
+              />
+              {newMessage && (
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                  <Button 
+                    onClick={sendMessage} 
+                    disabled={loading || (!newMessage.trim() && !stagedImage)}
+                    className="h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors duration-200"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
             <input
               ref={fileInputRef}
               type="file"
@@ -423,6 +529,11 @@ const CustomerChat = () => {
               onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
             />
           </div>
+          
+          <p className="text-xs text-gray-400 text-center flex items-center justify-center gap-2">
+            <Shield className="h-3 w-3" />
+            Secure connection • Your data is protected
+          </p>
         </div>
       </div>
     </div>

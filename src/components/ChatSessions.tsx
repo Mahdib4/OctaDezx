@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,15 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/components/ui/use-toast";
-import { MessageSquare, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { MessageSquare, AlertTriangle, CheckCircle, Clock, Send, User } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ChatSession {
   id: string;
   customer_name: string | null;
   customer_email: string | null;
-  status: 'active' | 'escalated' | 'resolved';
+  status: 'active' | 'escalated' | 'resolved' | 'manual';
   escalation_reason: string | null;
   created_at: string;
   messages: Array<{
@@ -36,37 +36,23 @@ const ChatSessions = ({ businessId }: ChatSessionsProps) => {
   const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null);
   const [newMessage, setNewMessage] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    console.log('Business ID changed:', businessId);
     loadSessions();
   }, [businessId]);
 
   useEffect(() => {
-    if (!selectedSession?.id) return;
-
-    const channel = supabase
-      .channel(`agent-chat-updates-${selectedSession.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `session_id=eq.${selectedSession.id}`,
-        },
-        () => {
-          loadSessions();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [selectedSession?.id]);
+    if (selectedSession) {
+      console.log('Selected session updated:', selectedSession.id, selectedSession.status);
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [selectedSession?.messages, selectedSession?.status]);
 
   const loadSessions = async () => {
     try {
+      console.log('Loading sessions for business:', businessId);
       const { data, error } = await supabase
         .from("chat_sessions")
         .select(`
@@ -84,15 +70,30 @@ const ChatSessions = ({ businessId }: ChatSessionsProps) => {
 
       if (error) throw error;
       
-      setSessions(data?.map(session => ({
+      const loadedSessions = data?.map(session => ({
         ...session,
-        status: session.status as 'active' | 'escalated' | 'resolved',
-        messages: (session.chat_messages || []).map((msg: any) => ({
+        // Map database status back to our frontend status
+        status: (session.status === 'escalated' ? 'manual' : session.status) as ChatSession['status'],
+        messages: (session.chat_messages || []).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()).map((msg: any) => ({
           ...msg,
           sender_type: msg.sender_type as 'customer' | 'ai' | 'human'
         }))
-      })) || []);
+      })) || [];
+      
+      console.log('Loaded sessions:', loadedSessions.length);
+      setSessions(loadedSessions);
+
+      // Update selected session if it exists
+      if (selectedSession) {
+        const updatedSelectedSession = loadedSessions.find(s => s.id === selectedSession.id);
+        if (updatedSelectedSession) {
+          console.log('Updated selected session status:', updatedSelectedSession.status);
+          setSelectedSession(updatedSelectedSession);
+        }
+      }
+
     } catch (error) {
+      console.error('Error loading sessions:', error);
       toast({
         title: "Error",
         description: "Failed to load chat sessions",
@@ -111,18 +112,19 @@ const ChatSessions = ({ businessId }: ChatSessionsProps) => {
         {
           session_id: selectedSession.id,
           sender_type: 'human',
-          content: newMessage,
+          content: newMessage.trim(),
         },
       ]);
 
       if (error) throw error;
 
       setNewMessage("");
-      loadSessions();
       toast({
         title: "Success",
         description: "Message sent.",
       });
+
+      loadSessions();
 
     } catch (error) {
       toast({
@@ -133,12 +135,21 @@ const ChatSessions = ({ businessId }: ChatSessionsProps) => {
     }
   };
 
-  const updateSessionStatus = async (sessionId: string, status: string) => {
+  const updateSessionStatus = async (sessionId: string, status: ChatSession['status']) => {
+    console.log('🔄 Updating session status:', sessionId, 'to:', status);
+    
+    // Map 'manual' to 'escalated' for database compatibility
+    const dbStatus = status === 'manual' ? 'escalated' : status;
+    console.log('📊 Using database status:', dbStatus);
+    
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("chat_sessions")
-        .update({ status })
-        .eq("id", sessionId);
+        .update({ status: dbStatus })
+        .eq("id", sessionId)
+        .select();
+
+      console.log('Update response:', data, error);
 
       if (error) throw error;
 
@@ -147,11 +158,22 @@ const ChatSessions = ({ businessId }: ChatSessionsProps) => {
         description: `Session marked as ${status}`,
       });
 
-      loadSessions();
-    } catch (error) {
+      // Force reload sessions and update selected session
+      await loadSessions();
+      
+      // Update the selected session immediately
+      if (selectedSession && selectedSession.id === sessionId) {
+        const updatedSession = sessions.find(s => s.id === sessionId);
+        if (updatedSession) {
+          setSelectedSession(updatedSession);
+        }
+      }
+
+    } catch (error: any) {
+      console.error('❌ Update error:', error);
       toast({
         title: "Error",
-        description: "Failed to update session status",
+        description: error.message || "Failed to update session status",
         variant: "destructive",
       });
     }
@@ -165,6 +187,8 @@ const ChatSessions = ({ businessId }: ChatSessionsProps) => {
         return <AlertTriangle className="h-4 w-4" />;
       case 'resolved':
         return <CheckCircle className="h-4 w-4" />;
+      case 'manual':
+        return <User className="h-4 w-4" />;
       default:
         return <MessageSquare className="h-4 w-4" />;
     }
@@ -178,6 +202,8 @@ const ChatSessions = ({ businessId }: ChatSessionsProps) => {
         return 'destructive';
       case 'resolved':
         return 'secondary';
+      case 'manual':
+        return 'default';
       default:
         return 'default';
     }
@@ -241,23 +267,34 @@ const ChatSessions = ({ businessId }: ChatSessionsProps) => {
                   <div className="flex space-x-2">
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" onClick={() => setSelectedSession(session)}>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => {
+                            console.log('Opening session:', session.id, 'status:', session.status);
+                            setSelectedSession(session);
+                          }}
+                        >
                           View Chat
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-2xl max-h-[80vh]">
+                      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
                         <DialogHeader>
                           <DialogTitle>
-                            Chat with {session.customer_name || 'Anonymous Customer'}
+                            Chat with {selectedSession?.customer_name || 'Anonymous Customer'}
                           </DialogTitle>
                           <DialogDescription>
-                            {session.customer_email} • {formatDistanceToNow(new Date(session.created_at))} ago
+                            {selectedSession?.customer_email} • {selectedSession && formatDistanceToNow(new Date(selectedSession.created_at))} ago
+                            <br />
+                            Status: <Badge variant={getStatusColor(selectedSession?.status || 'active')}>
+                              {selectedSession?.status}
+                            </Badge>
                           </DialogDescription>
                         </DialogHeader>
                         
-                        <ScrollArea className="h-96">
-                          <div className="space-y-4 p-4">
-                            {session.messages.map((message) => (
+                        <ScrollArea className="flex-grow pr-4">
+                          <div className="space-y-4 py-4">
+                            {selectedSession?.messages.map((message) => (
                               <div
                                 key={message.id}
                                 className={`flex ${
@@ -265,16 +302,16 @@ const ChatSessions = ({ businessId }: ChatSessionsProps) => {
                                 }`}
                               >
                                 <div
-                                  className={`max-w-[70%] rounded-lg p-3 ${
+                                  className={`max-w-[70%] rounded-lg p-3 break-words ${
                                     message.sender_type === 'customer'
                                       ? 'bg-muted'
                                       : message.sender_type === 'ai'
                                       ? 'bg-primary text-primary-foreground'
-                                      : 'bg-secondary'
+                                      : 'bg-secondary text-secondary-foreground'
                                   }`}
                                 >
                                   <div className="text-xs opacity-70 mb-1 capitalize">
-                                    {message.sender_type === 'customer' ? session.customer_name || 'Customer' : 'Customer Support'}
+                                    {message.sender_type === 'customer' ? selectedSession?.customer_name || 'Customer' : message.sender_type === 'ai' ? 'AI Assistant' : 'You'}
                                   </div>
                                   <div className="text-sm">{message.content}</div>
                                   {message.image_url && (
@@ -284,38 +321,56 @@ const ChatSessions = ({ businessId }: ChatSessionsProps) => {
                                       className="mt-2 max-w-full rounded border"
                                     />
                                   )}
-                                  <div className="text-xs opacity-70 mt-1">
-                                    {formatDistanceToNow(new Date(message.created_at))} ago
+                                  <div className="text-xs opacity-70 mt-1 text-right">
+                                    {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
                                   </div>
                                 </div>
                               </div>
                             ))}
+                            <div ref={messagesEndRef} />
                           </div>
                         </ScrollArea>
                         
-                        <div className="mt-4 flex space-x-2">
-                          <Input
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            placeholder="Type your message..."
-                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                          />
-                          <Button onClick={handleSendMessage}>Send</Button>
-                        </div>
+                        {selectedSession?.status === 'manual' && (
+                          <div className="mt-auto flex space-x-2 pt-4 border-t">
+                            <Textarea
+                              value={newMessage}
+                              onChange={(e) => setNewMessage(e.target.value)}
+                              placeholder="Type your manual reply..."
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleSendMessage();
+                                }
+                              }}
+                              className="flex-grow"
+                            />
+                            <Button 
+                              onClick={handleSendMessage} 
+                              disabled={!newMessage.trim()}
+                            >
+                              <Send className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
                         
                         <div className="flex space-x-2 pt-4 border-t">
-                          {session.status === 'escalated' && (
+                          {selectedSession && selectedSession.status !== 'manual' && (
                             <Button 
-                              onClick={() => updateSessionStatus(session.id, 'resolved')}
+                              onClick={() => {
+                                console.log('Manual takeover clicked for:', selectedSession.id);
+                                updateSessionStatus(selectedSession.id, 'manual');
+                              }}
                               size="sm"
+                              variant="secondary"
                             >
-                              Mark Resolved
+                              <User className="mr-2 h-4 w-4" />
+                              Reply Manually
                             </Button>
                           )}
-                          {session.status === 'active' && (
+                          {selectedSession && selectedSession.status !== 'resolved' && (
                             <Button 
-                              variant="outline"
-                              onClick={() => updateSessionStatus(session.id, 'resolved')}
+                              onClick={() => updateSessionStatus(selectedSession.id, 'resolved')}
                               size="sm"
                             >
                               Mark Resolved

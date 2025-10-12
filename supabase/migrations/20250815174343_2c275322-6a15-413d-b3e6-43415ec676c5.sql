@@ -55,6 +55,7 @@ CREATE TABLE public.chat_sessions (
   escalation_reason TEXT,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+  
 );
 
 -- Create chat messages table

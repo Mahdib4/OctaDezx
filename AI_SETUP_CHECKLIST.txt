@@ -1,0 +1,54 @@
+═══════════════════════════════════════════════════════
+    🤖 OctaDezx AI Setup Checklist
+═══════════════════════════════════════════════════════
+
+[ ] Step 1: Get API Key
+    Option A: Gemini (Google)
+    → https://makersuite.google.com/app/apikey
+    
+    Option B: Groq
+    → https://console.groq.com/
+    
+    ✏️ My API Key: _____________________________
+
+[ ] Step 2: Add Secret to Supabase
+    → https://supabase.com/dashboard/project/tmjfvsvpfmmlhvtozjwc/settings/functions
+    
+    Click: Edge Function Secrets → Add New Secret
+    
+    Name:  GEMINI_API_KEY  or  GROQ_API_KEY
+    Value: (paste your key)
+    
+    ✅ Secret added successfully
+
+[ ] Step 3: Deploy Function
+    Open terminal (Ctrl + ` in VS Code)
+    
+    Run:
+    cd D:\Octadezx\OctaDezx\OctaDezx
+    supabase functions deploy ai-chat-response
+    
+    ✅ Deployment successful
+
+[ ] Step 4: Test
+    Go to customer chat page
+    Send a test message
+    
+    ✅ AI responded!
+
+═══════════════════════════════════════════════════════
+    Need Help?
+═══════════════════════════════════════════════════════
+
+Check logs:
+https://supabase.com/dashboard/project/tmjfvsvpfmmlhvtozjwc/logs/edge-functions
+
+Common Issues:
+- "Not found" → Need to deploy function
+- "Unauthorized" → Check API key in Supabase secrets
+- No response → Check logs for specific error
+
+═══════════════════════════════════════════════════════
+
+Time to complete: ~5 minutes ⏱️
+Difficulty: Easy 🟢
