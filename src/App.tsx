@@ -12,7 +12,7 @@ import NotFound from "./pages/NotFound";
 import AuthCallback from "@/components/AuthCallback";
 import VerificationCompleted from "./pages/VerificationCompleted";
 import Pricing from "./pages/Pricing";
-import Payment from "./pages/Payment";
+import Payment from "./pages/payment";
 
 const queryClient = new QueryClient();
 
