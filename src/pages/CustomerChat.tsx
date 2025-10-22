@@ -179,7 +179,14 @@ const CustomerChat = () => {
   };
 
   const sendMessage = async () => {
-    if ((!newMessage.trim() && !stagedImage) || !sessionId) return;
+    console.log("📱 Mobile debug: sendMessage called");
+    console.log("📱 Mobile debug: newMessage:", newMessage);
+    console.log("📱 Mobile debug: sessionId:", sessionId);
+    
+    if ((!newMessage.trim() && !stagedImage) || !sessionId) {
+      console.log("📱 Mobile debug: Validation failed");
+      return;
+    }
 
     setLoading(true);
 
@@ -257,6 +264,7 @@ const CustomerChat = () => {
       }
 
     } catch (error) {
+      console.error("📱 Mobile debug: Error sending message:", error);
       setTyping(false);
       setNewMessage(content);
       setStagedImage(tempStagedImage);
@@ -462,7 +470,7 @@ const CustomerChat = () => {
         </div>
       </ScrollArea>
 
-      {/* Input Area */}
+      {/* Input Area - MOBILE OPTIMIZED */}
       <div className="border-t border-gray-700 bg-gray-800 p-4">
         <div className="max-w-4xl mx-auto space-y-3">
           {stagedImage && (
@@ -481,6 +489,7 @@ const CustomerChat = () => {
                 size="sm"
                 onClick={() => setStagedImage(null)}
                 className="h-8 w-8 hover:bg-red-900/30 hover:text-red-400"
+                type="button"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -493,16 +502,28 @@ const CustomerChat = () => {
               onClick={() => fileInputRef.current?.click()}
               variant="outline"
               className="h-12 w-12 flex-shrink-0 bg-gray-700 border-gray-600 hover:bg-gray-600 rounded-lg transition-colors duration-200"
+              type="button"
             >
               <ImageIcon className="h-5 w-5 text-gray-300" />
             </Button>
-            <form className="flex-1 relative flex items-center" onSubmit={(e) => { e.preventDefault(); sendMessage(); }}>
+            
+            {/* MOBILE OPTIMIZED FORM */}
+            <form 
+              className="flex-1 relative flex items-center" 
+              onSubmit={(e) => { 
+                e.preventDefault(); 
+                sendMessage(); 
+              }}
+            >
               <Input
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type your message..."
                 className="h-12 bg-gray-700 border-gray-600 text-white rounded-lg pl-4 pr-12 w-full focus:border-blue-500 transition-colors"
                 disabled={loading}
+                // Mobile-specific optimizations
+                enterKeyHint="send"
+                inputMode="text"
               />
               <Button 
                 type="submit"
@@ -517,12 +538,14 @@ const CustomerChat = () => {
                 )}
               </Button>
             </form>
+            
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
               className="hidden"
               onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+              capture="environment"
             />
           </div>
           
