@@ -496,17 +496,16 @@ const CustomerChat = () => {
             >
               <ImageIcon className="h-5 w-5 text-gray-300" />
             </Button>
-            <div className="flex-1 relative flex items-center">
+            <form className="flex-1 relative flex items-center" onSubmit={(e) => { e.preventDefault(); sendMessage(); }}>
               <Input
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type your message..."
-                onKeyPress={(e) => e.key === 'Enter' && !loading && sendMessage()}
                 className="h-12 bg-gray-700 border-gray-600 text-white rounded-lg pl-4 pr-12 w-full focus:border-blue-500 transition-colors"
                 disabled={loading}
               />
               <Button 
-                onClick={sendMessage} 
+                type="submit"
                 disabled={loading || (!newMessage.trim() && !stagedImage)}
                 className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors duration-200 disabled:bg-gray-500"
                 aria-label="Send message"
@@ -517,7 +516,7 @@ const CustomerChat = () => {
                   <Send className="h-4 w-4" />
                 )}
               </Button>
-            </div>
+            </form>
             <input
               ref={fileInputRef}
               type="file"
