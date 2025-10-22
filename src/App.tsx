@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -12,7 +12,7 @@ import NotFound from "./pages/NotFound";
 import AuthCallback from "@/components/AuthCallback";
 import VerificationCompleted from "./pages/VerificationCompleted";
 import Pricing from "./pages/Pricing";
-import Payment from "./pages/Payment";
+import Payment from "./pages/payment";
 
 const queryClient = new QueryClient();
 
@@ -36,7 +36,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <HashRouter>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
@@ -48,7 +48,7 @@ const App = () => (
               <Route path="/verification-completed" element={<VerificationCompleted />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </BrowserRouter>
+          </HashRouter>
         </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
