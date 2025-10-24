@@ -175,31 +175,53 @@ const CustomerChat = () => {
   };
 
   const handleImageUpload = (file: File) => {
+    console.log("📱 Mobile: Image selected:", file.name);
     setStagedImage(file);
   };
 
+  // COMPREHENSIVE MOBILE-OPTIMIZED sendMessage FUNCTION
   const sendMessage = async () => {
-    console.log("📱 Mobile debug: sendMessage called");
-    console.log("📱 Mobile debug: newMessage:", newMessage);
-    console.log("📱 Mobile debug: sessionId:", sessionId);
+    console.log("🚨 MOBILE DEBUG: sendMessage function CALLED");
+    console.log("📱 Platform:", navigator.platform);
+    console.log("📱 User Agent:", navigator.userAgent);
+    console.log("💬 Message value:", `"${newMessage}"`);
+    console.log("🖼️ Staged image:", stagedImage?.name || "None");
+    console.log("🔑 Session ID:", sessionId);
+    console.log("🔄 Loading state:", loading);
     
+    // Enhanced validation with mobile feedback
     if ((!newMessage.trim() && !stagedImage) || !sessionId) {
-      console.log("📱 Mobile debug: Validation failed");
+      console.log("❌ MOBILE VALIDATION FAILED:");
+      console.log("   - Message empty:", !newMessage.trim());
+      console.log("   - No image:", !stagedImage);
+      console.log("   - No session:", !sessionId);
+      
+      toast({
+        title: "Cannot send",
+        description: "Please type a message first",
+        variant: "destructive",
+      });
       return;
     }
 
+    console.log("✅ MOBILE: Validation passed, proceeding...");
+    
     setLoading(true);
-
     const content = newMessage.trim();
     const tempStagedImage = stagedImage;
     
+    // Clear inputs immediately for mobile feedback
     setNewMessage("");
     setStagedImage(null);
 
     try {
+      console.log("📱 MOBILE: Starting message process...");
+
       let imageUrl: string | undefined = undefined;
 
+      // Image upload for mobile
       if (tempStagedImage) {
+        console.log("📱 MOBILE: Uploading image...");
         const file = tempStagedImage;
         const fileExt = file.name.split('.').pop();
         const fileName = `${sessionId}-${Date.now()}.${fileExt}`;
@@ -207,14 +229,21 @@ const CustomerChat = () => {
         const { error: uploadError } = await supabase.storage
           .from('chat-files')
           .upload(fileName, file);
-        if (uploadError) throw uploadError;
+        
+        if (uploadError) {
+          console.error("📱 MOBILE: Image upload failed:", uploadError);
+          throw uploadError;
+        }
 
         const { data: { publicUrl } } = supabase.storage
           .from('chat-files')
           .getPublicUrl(fileName);
         imageUrl = publicUrl;
+        console.log("📱 MOBILE: Image uploaded successfully");
       }
 
+      // Save message to database
+      console.log("📱 MOBILE: Saving message to database...");
       const { data: savedMessage, error: messageError } = await supabase
         .from("chat_messages")
         .insert({
@@ -226,12 +255,19 @@ const CustomerChat = () => {
         .select()
         .single();
 
-      if (messageError) throw messageError;
+      if (messageError) {
+        console.error("📱 MOBILE: Database save failed:", messageError);
+        throw messageError;
+      }
+
+      console.log("📱 MOBILE: Message saved to database successfully");
 
       if(savedMessage) {
         setMessages(prev => [...prev, savedMessage as Message]);
       }
 
+      // Call AI function - THIS IS THE CRITICAL PART FOR MOBILE
+      console.log("📱 MOBILE: Calling AI Edge Function...");
       setTyping(true);
 
       const { data: aiResponse, error: functionError } = await supabase.functions.invoke('ai-chat-response', {
@@ -242,40 +278,63 @@ const CustomerChat = () => {
         },
       });
 
+      console.log("📱 MOBILE: AI function response received:", aiResponse);
+      console.log("📱 MOBILE: AI function error:", functionError);
+
       setTyping(false);
 
       if (functionError) {
-        loadMessages();
+        console.error("📱 MOBILE: AI function failed:", functionError);
+        loadMessages(); // Try to load any existing messages
         throw functionError;
       }
       
-      if (aiResponse.response) {
+      if (aiResponse?.response) {
+        console.log("📱 MOBILE: AI responded, saving AI message to database...");
         await supabase.from('chat_messages').insert({
           session_id: sessionId,
           sender_type: 'ai',
           content: aiResponse.response,
         });
+      } else {
+        console.log("📱 MOBILE: No AI response received");
       }
 
+      // Reload messages to ensure sync
+      console.log("📱 MOBILE: Reloading all messages...");
       loadMessages();
 
-      if (aiResponse.escalated) {
-          await supabase.from('chat_sessions').update({ status: 'escalated', escalation_reason: aiResponse.reason }).eq('id', sessionId);
+      if (aiResponse?.escalated) {
+        await supabase.from('chat_sessions').update({ 
+          status: 'escalated', 
+          escalation_reason: aiResponse.reason 
+        }).eq('id', sessionId);
       }
 
+      console.log("📱 MOBILE: ✅ Message process completed successfully");
+
     } catch (error) {
-      console.error("📱 Mobile debug: Error sending message:", error);
+      console.error("📱 MOBILE: ❌ Error in sendMessage:", error);
       setTyping(false);
+      // Restore the message for retry
       setNewMessage(content);
       setStagedImage(tempStagedImage);
+      
       toast({
-        title: "Error",
+        title: "Mobile Error",
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
+  };
+
+  // MOBILE-SPECIFIC EVENT HANDLER
+  const handleSendMessageMobile = async (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    console.log("👆 MOBILE: Send button triggered via", 'touches' in e ? 'TOUCH' : 'CLICK');
+    await sendMessage();
   };
 
   if (!business) {
@@ -470,7 +529,7 @@ const CustomerChat = () => {
         </div>
       </ScrollArea>
 
-      {/* Input Area - MOBILE OPTIMIZED */}
+      {/* Input Area - COMPREHENSIVE MOBILE OPTIMIZATION */}
       <div className="border-t border-gray-700 bg-gray-800 p-4">
         <div className="max-w-4xl mx-auto space-y-3">
           {stagedImage && (
@@ -507,12 +566,13 @@ const CustomerChat = () => {
               <ImageIcon className="h-5 w-5 text-gray-300" />
             </Button>
             
-            {/* MOBILE OPTIMIZED FORM */}
+            {/* COMPREHENSIVE MOBILE-OPTIMIZED FORM */}
             <form 
               className="flex-1 relative flex items-center" 
-              onSubmit={(e) => { 
+              onSubmit={async (e) => { 
                 e.preventDefault(); 
-                sendMessage(); 
+                console.log("📱 MOBILE: Form submitted via ENTER key");
+                await sendMessage(); 
               }}
             >
               <Input
@@ -521,15 +581,30 @@ const CustomerChat = () => {
                 placeholder="Type your message..."
                 className="h-12 bg-gray-700 border-gray-600 text-white rounded-lg pl-4 pr-12 w-full focus:border-blue-500 transition-colors"
                 disabled={loading}
-                // Mobile-specific optimizations
+                // Enhanced mobile-specific attributes
                 enterKeyHint="send"
                 inputMode="text"
+                // Remove any default form behaviors that might interfere
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    console.log("📱 MOBILE: Enter key pressed");
+                    sendMessage();
+                  }
+                }}
               />
               <Button 
                 type="submit"
                 disabled={loading || (!newMessage.trim() && !stagedImage)}
                 className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors duration-200 disabled:bg-gray-500"
                 aria-label="Send message"
+                // CRITICAL: Multiple event handlers for mobile compatibility
+                onClick={handleSendMessageMobile}
+                onTouchStart={handleSendMessageMobile}
+                style={{ 
+                  WebkitTapHighlightColor: 'transparent',
+                  touchAction: 'manipulation'
+                }}
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -544,7 +619,10 @@ const CustomerChat = () => {
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+              onChange={(e) => {
+                console.log("📱 MOBILE: File input changed");
+                e.target.files?.[0] && handleImageUpload(e.target.files[0]);
+              }}
               capture="environment"
             />
           </div>
