@@ -5,9 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { Bot, Send, Image as ImageIcon, Loader2, X, User, Shield, Building } from "lucide-react";
+import { Bot, Send, Image as ImageIcon, Loader2, X, Building } from "lucide-react";
 
 interface Business {
   id: string;
@@ -37,228 +36,151 @@ const CustomerChat = () => {
   const [typing, setTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  const generateUUID = () => {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  };
-
-  if (!maybeBusinessId) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-red-900 rounded-full flex items-center justify-center mx-auto mb-4">
-            <X className="h-8 w-8 text-red-400" />
-          </div>
-          <h1 className="text-2xl font-bold mb-4">Invalid Link</h1>
-          <p className="text-gray-400">
-            The chat link is missing business information.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const businessId = maybeBusinessId;
+  const generateUUID = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 
   useEffect(() => {
-    loadBusiness();
-  }, [businessId]);
+    if (maybeBusinessId) {
+      loadBusiness();
+      const existingSessionId = localStorage.getItem(`chat_session_${maybeBusinessId}`);
+      if (existingSessionId) {
+        setSessionId(existingSessionId);
+        setIsSetup(true);
+        loadMessages(existingSessionId);
+      }
+    }
+  }, [maybeBusinessId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, typing]);
 
   useEffect(() => {
     if (!sessionId) return;
 
-    const subscription = supabase
+    const channel = supabase
       .channel(`chat-messages:${sessionId}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `session_id=eq.${sessionId}` },
         (payload) => {
-          setMessages((prevMessages) => [...prevMessages, payload.new as Message]);
+          setMessages(prev => [...prev.filter(m => m.id !== payload.new.id), payload.new as Message]);
+          if ((payload.new as Message).sender_type === 'ai') {
+            setTyping(false);
+          }
         }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(subscription);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [sessionId]);
+
+  const businessId = maybeBusinessId!;
 
   const loadBusiness = async () => {
     try {
-      const { data, error } = await supabase
-        .rpc('get_public_business', { business_id: businessId });
-
-      if (error || !data || data.length === 0) {
-        throw (error || new Error('Business not found'));
-      }
-      setBusiness(data[0] as Business);
-    } catch (error) {
-      toast({
-        title: "Error", 
-        description: "The business you are looking for is not available",
-        variant: "destructive",
-      });
+      const { data, error } = await supabase.rpc('get_public_business', { business_id: businessId });
+      if (error || !data?.length) throw new Error('Business not found');
+      setBusiness(data[0]);
+    } catch (e) {
+      toast({ title: "Error", description: "Business not available", variant: "destructive" });
     }
+  };
+
+  const loadMessages = async (sid: string) => {
+    const { data, error } = await supabase.from('chat_messages').select('*').eq('session_id', sid).order('created_at');
+    if (data) setMessages(data);
   };
 
   const startChat = async (skip = false) => {
     if (!skip && (!customerInfo.name || !customerInfo.email)) {
-      toast({
-        title: "Error",
-        description: "Please provide your name and email",
-        variant: "destructive",
-      });
-      return;
+      return toast({ title: "Error", description: "Please provide name and email", variant: "destructive" });
     }
-
     try {
       const newSessionId = generateUUID();
       const name = skip ? 'Anonymous' : customerInfo.name;
-      const email = skip ? `${generateUUID()}@anonymous.com` : customerInfo.email;
+      const email = skip ? `${generateUUID()}@anon.com` : customerInfo.email;
 
-      const { error } = await supabase
-        .from("chat_sessions")
-        .insert({
-            id: newSessionId,
-            business_id: businessId,
-            customer_name: name,
-            customer_email: email,
-        });
-
-      if (error) throw error;
-
+      await supabase.from("chat_sessions").insert({ id: newSessionId, business_id: businessId, customer_name: name, customer_email: email });
+      
       setCustomerInfo({ name, email });
       setSessionId(newSessionId);
       setIsSetup(true);
-      
-      const welcomeMessage = "Hello! I'm here to help you today. How can I assist you?";
-      const { data: msgData, error: messageError } = await supabase
-        .from("chat_messages")
-        .insert({
-          session_id: newSessionId,
-          sender_type: 'ai',
-          content: welcomeMessage,
-        })
-        .select()
-        .single();
+      localStorage.setItem(`chat_session_${businessId}`, newSessionId);
 
-      if (!messageError && msgData) {
-        setMessages([msgData as Message]);
-      }
-
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to start chat session",
-        variant: "destructive",
-      });
+      await supabase.from("chat_messages").insert({ session_id: newSessionId, sender_type: 'ai', content: "Hello! How can I assist you today?" });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to start chat.", variant: "destructive" });
     }
-  };
-
-  const handleImageUpload = (file: File) => {
-    setStagedImage(file);
   };
 
   const sendMessage = async () => {
     if ((!newMessage.trim() && !stagedImage) || !sessionId) return;
 
+    setLoading(true);
     const content = newMessage.trim();
-    const tempStagedImage = stagedImage;
+    const imageFile = stagedImage;
     setNewMessage("");
     setStagedImage(null);
-    setLoading(true);
+
+    // Optimistically add user message
+    const tempId = generateUUID();
+    const tempMessage: Message = {
+      id: tempId,
+      sender_type: 'customer',
+      content: content || "Sending image...",
+      created_at: new Date().toISOString(),
+      image_url: imageFile ? URL.createObjectURL(imageFile) : undefined
+    };
+    setMessages(prev => [...prev, tempMessage]);
     setTyping(true);
 
     try {
-        let imageUrl: string | undefined = undefined;
-        if (tempStagedImage) {
-            const fileExt = tempStagedImage.name.split('.').pop();
-            const fileName = `${sessionId}-${Date.now()}.${fileExt}`;
-            const { error: uploadError } = await supabase.storage.from('chat-files').upload(fileName, tempStagedImage);
-            if (uploadError) throw uploadError;
-            imageUrl = supabase.storage.from('chat-files').getPublicUrl(fileName).data.publicUrl;
-        }
+      let imageUrl: string | undefined;
+      if (imageFile) {
+        const fileName = `${sessionId}/${Date.now()}_${imageFile.name}`;
+        const { error: uploadError } = await supabase.storage.from('chat-files').upload(fileName, imageFile);
+        if (uploadError) throw uploadError;
+        imageUrl = supabase.storage.from('chat-files').getPublicUrl(fileName).data.publicUrl;
+      }
+      
+      // Overwrite optimistic message with actual data sent to backend
+      const finalContent = content || (imageUrl ? "Image sent" : "");
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, content: finalContent, image_url: imageUrl } : m));
+      
+      const { error } = await supabase.functions.invoke('ai-chat-response', {
+        body: { sessionId, businessId, message: finalContent, imageUrl },
+      });
 
-        const { error: messageError } = await supabase.functions.invoke('ai-chat-response', {
-            body: { 
-                sessionId, 
-                businessId, 
-                message: content, 
-                imageUrl 
-            },
-        });
+      if (error) throw error;
 
-        if (messageError) throw messageError;
-
-    } catch (error) {
-        console.error("Error sending message:", error);
-        toast({ title: "Error", description: "Failed to send message.", variant: "destructive" });
-        setNewMessage(content);
-        setStagedImage(tempStagedImage);
+    } catch (err) {
+      console.error("Message failed to send:", err);
+      toast({ title: "Error", description: "Message not sent.", variant: "destructive" });
+      setMessages(p => p.filter(m => m.id !== tempId)); // Rollback optimistic
+      setTyping(false);
     } finally {
-        setLoading(false);
-        setTyping(false);
+      setLoading(false);
     }
-};
+  };
 
-  if (!business) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 text-blue-400 animate-spin mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-4">Loading Business...</h1>
-          <p className="text-gray-400">
-            Please wait while we connect you to the chat service.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (!maybeBusinessId) return <div className="h-screen flex items-center justify-center"><X /> Invalid Link</div>;
+  if (!business) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin"/></div>;
 
   if (!isSetup) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
         <Card className="w-full max-w-md bg-gray-800 text-white border-gray-700">
-          <CardHeader className="text-center space-y-4">
-            <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Building className="h-10 w-10 text-white" />
-            </div>
-            <CardTitle className="text-2xl">Chat with {business.name}</CardTitle>
-            <CardDescription className="text-gray-300 text-base">{business.description}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
-              <Input
-                value={customerInfo.name}
-                onChange={(e) => setCustomerInfo(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter your name"
-                className="bg-gray-700 text-white border-gray-600"
-              />
-              <Input
-                type="email"
-                value={customerInfo.email}
-                onChange={(e) => setCustomerInfo(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="Enter your email"
-                className="bg-gray-700 text-white border-gray-600"
-              />
-            </div>
-            <div className="flex flex-col gap-3">
-              <Button onClick={() => startChat(false)} className="w-full bg-blue-600 hover:bg-blue-700">
-                Start Chat
-              </Button>
-              <Button onClick={() => startChat(true)} variant="outline" className="w-full border-gray-600 hover:bg-gray-700">
-                Continue Anonymously
-              </Button>
-            </div>
+          <CardHeader className="text-center space-y-4"><Building className="mx-auto h-12 w-12"/><CardTitle>Chat with {business.name}</CardTitle><CardDescription>{business.description}</CardDescription></CardHeader>
+          <CardContent className="space-y-4">
+            <Input value={customerInfo.name} onChange={e => setCustomerInfo(p => ({...p, name: e.target.value}))} placeholder="Name" className="bg-gray-700"/>
+            <Input type="email" value={customerInfo.email} onChange={e => setCustomerInfo(p => ({...p, email: e.target.value}))} placeholder="Email" className="bg-gray-700"/>
+            <Button onClick={() => startChat(false)} className="w-full bg-blue-600">Start Chat</Button>
+            <Button onClick={() => startChat(true)} variant="outline" className="w-full">Continue Anonymously</Button>
           </CardContent>
         </Card>
       </div>
@@ -267,84 +189,31 @@ const CustomerChat = () => {
 
   return (
     <div className="h-screen flex flex-col bg-gray-900 text-white">
-      <header className="border-b border-gray-700 bg-gray-800 p-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <h1 className="font-semibold text-lg">{business.name}</h1>
-          </div>
-        </div>
-      </header>
-
-      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-        <div className="max-w-4xl mx-auto space-y-4 pb-4">
-          {messages.map((message) => (
-            <div key={message.id} className={`flex ${message.sender_type === 'customer' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-lg p-4 ${message.sender_type === 'customer' ? 'bg-blue-600 text-white' : 'bg-gray-800 border border-gray-700'}`}>
-                <div className="text-sm">{message.content}</div>
-                {message.image_url && (
-                  <div className="mt-2">
-                    <img src={message.image_url} alt="Uploaded content" className="max-w-full rounded-lg" />
-                  </div>
-                )}
-                <div className="text-xs text-right mt-1 opacity-70">
-                  {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </div>
+      <header className="border-b border-gray-700 bg-gray-800 p-4"><h1 className="font-semibold text-lg">{business.name}</h1></header>
+      <ScrollArea className="flex-1 p-4">
+        <div className="max-w-4xl mx-auto space-y-4">
+          {messages.sort((a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()).map(msg => (
+            <div key={msg.id} className={`flex ${msg.sender_type === 'customer' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] rounded-lg p-3 ${msg.sender_type === 'customer' ? 'bg-blue-600' : 'bg-gray-700'}`}>
+                {msg.image_url && <img src={msg.image_url} alt="Uploaded content" className="max-w-full rounded-lg mb-2" style={{maxHeight: '300px'}}/>}
+                <p>{msg.content}</p>
+                <div className="text-xs text-right mt-1 opacity-60">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
               </div>
             </div>
           ))}
-          {typing && (
-            <div className="flex justify-start">
-              <div className="max-w-[80%] bg-gray-800 border border-gray-700 rounded-lg p-4">
-                <div className="flex items-center space-x-2">
-                  <Bot className="h-4 w-4 text-blue-400" />
-                  <span className="text-sm text-gray-400">Typing...</span>
-                </div>
-              </div>
-            </div>
-          )}
+          {typing && <div className="flex justify-start"><div className="p-3 bg-gray-700 rounded-lg"><Bot className="h-5 w-5 text-blue-400 animate-pulse"/></div></div>}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
-
       <div className="border-t border-gray-700 bg-gray-800 p-4">
         <div className="max-w-4xl mx-auto">
-          {stagedImage && (
-            <div className="flex items-center justify-between bg-gray-700 p-2 rounded-lg mb-2">
-              <span>{stagedImage.name}</span>
-              <Button variant="ghost" size="sm" onClick={() => setStagedImage(null)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-          <form 
-            className="flex items-center space-x-3" 
-            onSubmit={async (e) => { 
-              e.preventDefault(); 
-              await sendMessage(); 
-            }}
-          >
-            <Button size="sm" onClick={() => fileInputRef.current?.click()} variant="outline" type="button">
-              <ImageIcon className="h-5 w-5" />
-            </Button>
-            <Input
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type your message..."
-              className="flex-1 bg-gray-700 border-gray-600"
-              disabled={loading}
-            />
-            <Button type="submit" disabled={loading || (!newMessage.trim() && !stagedImage)}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
+          {stagedImage && <div className="text-sm mb-2">Image: {stagedImage.name} <X className="inline h-4 w-4 cursor-pointer" onClick={() => setStagedImage(null)}/></div>}
+          <form className="flex items-center gap-2" onSubmit={e => { e.preventDefault(); sendMessage(); }}>
+            <Input value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder="Type a message..." className="flex-1 bg-gray-700" disabled={loading} />
+            <Button type="button" variant="ghost" onClick={() => fileInputRef.current?.click()}><ImageIcon/></Button>
+            <Button type="submit" disabled={loading || (!newMessage.trim() && !stagedImage)}>{loading ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4"/>}</Button>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && setStagedImage(e.target.files[0])}/>
           </form>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
-            capture="environment"
-          />
         </div>
       </div>
     </div>
