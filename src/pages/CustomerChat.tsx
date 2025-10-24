@@ -652,13 +652,6 @@ Important Rules:
                 disabled={loading}
                 enterKeyHint="send"
                 inputMode="text"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    console.log("📱 MOBILE: Enter key pressed");
-                    sendMessage();
-                  }
-                }}
               />
               <Button 
                 type="submit"
@@ -666,7 +659,6 @@ Important Rules:
                 className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors duration-200 disabled:bg-gray-500"
                 aria-label="Send message"
                 onClick={handleSendMessageMobile}
-                onTouchStart={handleSendMessageMobile}
                 style={{ 
                   WebkitTapHighlightColor: 'transparent',
                   touchAction: 'manipulation'
