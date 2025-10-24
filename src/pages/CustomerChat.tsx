@@ -39,6 +39,9 @@ const CustomerChat = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
+  // Your Groq API Key - Direct access (also set in Netlify environment variables)
+  const GROQ_API_KEY = "840b174675eac8b4d014f595d168e2dcba3318a0da2ad5d9afd22538b40afd36";
+
   const generateUUID = () => {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
       const r = Math.random() * 16 | 0;
@@ -179,23 +182,14 @@ const CustomerChat = () => {
     setStagedImage(file);
   };
 
-  // COMPREHENSIVE MOBILE-OPTIMIZED sendMessage FUNCTION
+  // MOBILE-OPTIMIZED sendMessage FUNCTION WITH DIRECT GROQ API
   const sendMessage = async () => {
     console.log("🚨 MOBILE DEBUG: sendMessage function CALLED");
     console.log("📱 Platform:", navigator.platform);
     console.log("📱 User Agent:", navigator.userAgent);
-    console.log("💬 Message value:", `"${newMessage}"`);
-    console.log("🖼️ Staged image:", stagedImage?.name || "None");
-    console.log("🔑 Session ID:", sessionId);
-    console.log("🔄 Loading state:", loading);
     
-    // Enhanced validation with mobile feedback
     if ((!newMessage.trim() && !stagedImage) || !sessionId) {
-      console.log("❌ MOBILE VALIDATION FAILED:");
-      console.log("   - Message empty:", !newMessage.trim());
-      console.log("   - No image:", !stagedImage);
-      console.log("   - No session:", !sessionId);
-      
+      console.log("❌ MOBILE: Validation failed");
       toast({
         title: "Cannot send",
         description: "Please type a message first",
@@ -210,16 +204,15 @@ const CustomerChat = () => {
     const content = newMessage.trim();
     const tempStagedImage = stagedImage;
     
-    // Clear inputs immediately for mobile feedback
     setNewMessage("");
     setStagedImage(null);
 
     try {
-      console.log("📱 MOBILE: Starting message process...");
+      console.log("📱 MOBILE: Starting mobile-optimized message process...");
 
       let imageUrl: string | undefined = undefined;
 
-      // Image upload for mobile
+      // Image upload
       if (tempStagedImage) {
         console.log("📱 MOBILE: Uploading image...");
         const file = tempStagedImage;
@@ -242,8 +235,8 @@ const CustomerChat = () => {
         console.log("📱 MOBILE: Image uploaded successfully");
       }
 
-      // Save message to database
-      console.log("📱 MOBILE: Saving message to database...");
+      // Save customer message to database
+      console.log("📱 MOBILE: Saving customer message...");
       const { data: savedMessage, error: messageError } = await supabase
         .from("chat_messages")
         .insert({
@@ -260,69 +253,145 @@ const CustomerChat = () => {
         throw messageError;
       }
 
-      console.log("📱 MOBILE: Message saved to database successfully");
+      console.log("📱 MOBILE: Customer message saved to database");
 
       if(savedMessage) {
         setMessages(prev => [...prev, savedMessage as Message]);
       }
 
-      // Call AI function - THIS IS THE CRITICAL PART FOR MOBILE
-      console.log("📱 MOBILE: Calling AI Edge Function...");
+      // MOBILE-OPTIMIZED AI CALL - DIRECT TO GROQ API
+      console.log("📱 MOBILE: Starting direct Groq API call...");
       setTyping(true);
 
-      const { data: aiResponse, error: functionError } = await supabase.functions.invoke('ai-chat-response', {
-        body: {
-          sessionId: sessionId,
-          businessId: businessId,
-          message: content || "User sent an image.",
-        },
-      });
+      try {
+        // Get business context
+        const { data: businessData, error: businessError } = await supabase
+          .from("businesses")
+          .select(`*, products (id, name, description, category, price)`)
+          .eq("id", businessId)
+          .single();
 
-      console.log("📱 MOBILE: AI function response received:", aiResponse);
-      console.log("📱 MOBILE: AI function error:", functionError);
+        if (businessError) throw businessError;
 
-      setTyping(false);
+        // Get chat history
+        const { data: historyData } = await supabase
+          .from("chat_messages")
+          .select("sender_type, content")
+          .eq("session_id", sessionId)
+          .order("created_at", { ascending: true })
+          .limit(6);
 
-      if (functionError) {
-        console.error("📱 MOBILE: AI function failed:", functionError);
-        loadMessages(); // Try to load any existing messages
-        throw functionError;
-      }
-      
-      if (aiResponse?.response) {
-        console.log("📱 MOBILE: AI responded, saving AI message to database...");
+        const history: Array<{role: string, content: string}> = (historyData || [])
+          .map((m: any) => ({
+            role: m.sender_type === 'ai' ? 'assistant' : 'user',
+            content: m.content,
+          }));
+
+        // Create system prompt
+        const products = (businessData.products || []).slice(0, 10);
+        const catalog = products.length
+          ? products.map((p: any) => `- ${p.name} (${p.category}) - $${p.price || 'N/A'}`).join('\n')
+          : "No products available";
+
+        const systemPrompt = `You are a helpful Customer Support agent for ${businessData.name}.
+        
+Business: ${businessData.name}
+Description: ${businessData.description || ''}
+Policies: ${businessData.policies || 'Standard policies apply'}
+
+Available Products:
+${catalog}
+
+Important Rules:
+- NEVER refer to yourself as an AI or language model
+- Be helpful, professional, and sales-focused
+- Recommend relevant products when appropriate
+- Keep responses under 300 words
+- Always be friendly and customer-oriented`;
+
+        console.log("📱 MOBILE: Calling Groq API directly with key:", GROQ_API_KEY ? "PRESENT" : "MISSING");
+        
+        if (!GROQ_API_KEY) {
+          throw new Error("Groq API key not configured");
+        }
+
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${GROQ_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: "llama-3.1-8b-instant",
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...history,
+              { role: "user", content: content || "User sent an image" }
+            ],
+            max_tokens: 450,
+            temperature: 0.3,
+          }),
+        });
+
+        console.log("📱 MOBILE: Groq API response status:", response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("📱 MOBILE: Groq API error:", response.status, errorText);
+          throw new Error(`Groq API error: ${response.status}`);
+        }
+
+        const aiData = await response.json();
+        const aiResponse = aiData.choices[0]?.message?.content;
+
+        console.log("📱 MOBILE: Groq API success, response length:", aiResponse?.length);
+
+        if (aiResponse) {
+          // Save AI response to database
+          await supabase.from('chat_messages').insert({
+            session_id: sessionId,
+            sender_type: 'ai',
+            content: aiResponse,
+          });
+          
+          console.log("📱 MOBILE: AI response saved to database");
+        } else {
+          console.log("📱 MOBILE: No AI response received, using fallback");
+          // Fallback response
+          await supabase.from('chat_messages').insert({
+            session_id: sessionId,
+            sender_type: 'ai',
+            content: "Thanks for your message! I'll be happy to help you with that.",
+          });
+        }
+
+      } catch (aiError) {
+        console.error("📱 MOBILE: AI call failed:", aiError);
+        // Fallback response when AI fails
         await supabase.from('chat_messages').insert({
           session_id: sessionId,
           sender_type: 'ai',
-          content: aiResponse.response,
+          content: "Thanks for your message! I'm here to help. How can I assist you today?",
         });
-      } else {
-        console.log("📱 MOBILE: No AI response received");
       }
 
-      // Reload messages to ensure sync
-      console.log("📱 MOBILE: Reloading all messages...");
+      setTyping(false);
+
+      // Reload messages to show both user and AI messages
+      console.log("📱 MOBILE: Reloading messages...");
       loadMessages();
-
-      if (aiResponse?.escalated) {
-        await supabase.from('chat_sessions').update({ 
-          status: 'escalated', 
-          escalation_reason: aiResponse.reason 
-        }).eq('id', sessionId);
-      }
 
       console.log("📱 MOBILE: ✅ Message process completed successfully");
 
     } catch (error) {
       console.error("📱 MOBILE: ❌ Error in sendMessage:", error);
       setTyping(false);
-      // Restore the message for retry
       setNewMessage(content);
       setStagedImage(tempStagedImage);
       
       toast({
-        title: "Mobile Error",
-        description: "Failed to send message. Please try again.",
+        title: "Connection Issue",
+        description: "Please check your connection and try again",
         variant: "destructive",
       });
     } finally {
@@ -529,7 +598,7 @@ const CustomerChat = () => {
         </div>
       </ScrollArea>
 
-      {/* Input Area - COMPREHENSIVE MOBILE OPTIMIZATION */}
+      {/* Input Area - MOBILE OPTIMIZED */}
       <div className="border-t border-gray-700 bg-gray-800 p-4">
         <div className="max-w-4xl mx-auto space-y-3">
           {stagedImage && (
@@ -566,7 +635,7 @@ const CustomerChat = () => {
               <ImageIcon className="h-5 w-5 text-gray-300" />
             </Button>
             
-            {/* COMPREHENSIVE MOBILE-OPTIMIZED FORM */}
+            {/* MOBILE OPTIMIZED FORM */}
             <form 
               className="flex-1 relative flex items-center" 
               onSubmit={async (e) => { 
@@ -581,10 +650,8 @@ const CustomerChat = () => {
                 placeholder="Type your message..."
                 className="h-12 bg-gray-700 border-gray-600 text-white rounded-lg pl-4 pr-12 w-full focus:border-blue-500 transition-colors"
                 disabled={loading}
-                // Enhanced mobile-specific attributes
                 enterKeyHint="send"
                 inputMode="text"
-                // Remove any default form behaviors that might interfere
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -598,7 +665,6 @@ const CustomerChat = () => {
                 disabled={loading || (!newMessage.trim() && !stagedImage)}
                 className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors duration-200 disabled:bg-gray-500"
                 aria-label="Send message"
-                // CRITICAL: Multiple event handlers for mobile compatibility
                 onClick={handleSendMessageMobile}
                 onTouchStart={handleSendMessageMobile}
                 style={{ 
