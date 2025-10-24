@@ -399,7 +399,6 @@ Important Rules:
     }
   };
 
-  // MOBILE-SPECIFIC EVENT HANDLER
   const handleSendMessageMobile = async (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     console.log("👆 MOBILE: Send button triggered via", 'touches' in e ? 'TOUCH' : 'CLICK');
@@ -491,7 +490,7 @@ Important Rules:
     <div className="h-screen flex flex-col bg-gray-900 text-white">
       {/* Header */}
       <header className="border-b border-gray-700 bg-gray-800 p-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+        <div className="max-w-6xl mx-auto flex items-center justify-.between">
           <div className="flex items-center space-x-4">
             <div className="relative">
               <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
@@ -640,7 +639,7 @@ Important Rules:
               className="flex-1 relative flex items-center" 
               onSubmit={async (e) => { 
                 e.preventDefault(); 
-                console.log("📱 MOBILE: Form submitted via ENTER key");
+                console.log("📱 MOBILE: Form submitted");
                 await sendMessage(); 
               }}
             >
@@ -658,7 +657,6 @@ Important Rules:
                 disabled={loading || (!newMessage.trim() && !stagedImage)}
                 className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors duration-200 disabled:bg-gray-500"
                 aria-label="Send message"
-                onClick={handleSendMessageMobile}
                 style={{ 
                   WebkitTapHighlightColor: 'transparent',
                   touchAction: 'manipulation'
